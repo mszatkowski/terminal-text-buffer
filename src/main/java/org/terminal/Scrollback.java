@@ -23,6 +23,10 @@ class Scrollback {
         }
     }
 
+    Cell getCellAt(int x, int y) {
+        return getLine(y).getCell(x);
+    }
+
     Line getLine(int index) {
         return lines.get(getSize() + index);
     }
@@ -33,5 +37,18 @@ class Scrollback {
 
     int getWidth() {
         return width;
+    }
+
+    @Override
+    public String toString() {
+        int capacity = (width + 1) * getSize();
+        StringBuilder stringBuilder = new StringBuilder(capacity);
+        for (int i = 0; i < getSize(); i++) {
+            stringBuilder.append(lines.get(i).toString());
+            if (i < getSize() - 1) {
+                stringBuilder.append('\n');
+            }
+        }
+        return stringBuilder.toString();
     }
 }

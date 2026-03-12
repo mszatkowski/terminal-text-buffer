@@ -30,4 +30,17 @@ class Screen {
     public int getHeight() {
         return height;
     }
+
+    @Override
+    public String toString() {
+        int capacity = (width + 1) * height;
+        StringBuilder stringBuilder = new StringBuilder(capacity);
+        for (int i = 0; i < lines.length; i++) {
+            stringBuilder.append(lines[i].toString());
+            if (i < lines.length - 1) {
+                stringBuilder.append('\n');
+            }
+        }
+        return stringBuilder.toString();
+    }
 }
