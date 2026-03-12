@@ -21,39 +21,39 @@ class Cell {
         this.styles.addAll(styles);
     }
 
-    public char getCharacter() {
+    char getCharacter() {
         return character;
     }
 
-    public void setCharacter(char character) {
+    void setCharacter(char character) {
         this.character = character;
     }
 
-    public TerminalColor getForegroundColor() {
+    TerminalColor getForegroundColor() {
         return foregroundColor;
     }
 
-    public void setForegroundColor(TerminalColor foregroundColor) {
+    void setForegroundColor(TerminalColor foregroundColor) {
         this.foregroundColor = foregroundColor;
     }
 
-    public TerminalColor getBackgroundColor() {
+    TerminalColor getBackgroundColor() {
         return backgroundColor;
     }
 
-    public void setBackgroundColor(TerminalColor backgroundColor) {
+    void setBackgroundColor(TerminalColor backgroundColor) {
         this.backgroundColor = backgroundColor;
     }
 
-    public Set<Style> getStyles() {
+    Set<Style> getStyles() {
         return Collections.unmodifiableSet(styles);
     }
 
-    public void addStyle(Style style) {
+    void addStyle(Style style) {
         styles.add(style);
     }
 
-    public void removeStyle(Style style) {
+    void removeStyle(Style style) {
         styles.remove(style);
     }
 }
