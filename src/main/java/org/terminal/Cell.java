@@ -56,4 +56,8 @@ class Cell {
     void removeStyle(Style style) {
         styles.remove(style);
     }
+
+    char getPrintableCharacter() {
+        return character == '\0' ? ' ' : character;
+    }
 }

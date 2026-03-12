@@ -17,4 +17,13 @@ class Line {
     void setCell(int index, Cell cell) {
         cells[index] = cell;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder(cells.length);
+        for (Cell cell : cells) {
+            stringBuilder.append(cell.getPrintableCharacter());
+        }
+        return stringBuilder.toString();
+    }
 }
