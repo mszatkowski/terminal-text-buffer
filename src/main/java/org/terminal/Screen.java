@@ -41,6 +41,18 @@ class Screen {
         getLine(row).fill(character, attributes);
     }
 
+    Line scrollUp() {
+        Line line = lines[0];
+
+        for (int i = 1; i < height; i++) {
+            lines[i - 1] = lines[i];
+        }
+
+        lines[height - 1] = new Line(width);
+
+        return line;
+    }
+
     @Override
     public String toString() {
         int capacity = (width + 1) * height;

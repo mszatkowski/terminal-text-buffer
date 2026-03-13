@@ -24,6 +24,11 @@ public class TerminalBuffer {
         this.currentStyles = EnumSet.noneOf(Style.class);
     }
 
+    public void insertEmptyLineAtBottom() {
+        Line topLine = screen.scrollUp();
+        scrollback.push(topLine);
+    }
+
     public void fillLine(char character) {
         CellAttributes attributes = new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
         screen.fillLine(cursorY, character, attributes);
