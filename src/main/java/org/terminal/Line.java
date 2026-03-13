@@ -24,6 +24,15 @@ class Line {
         }
     }
 
+    public void fill(char character, CellAttributes attributes) {
+        for (Cell cell : cells) {
+            cell.setCharacter(character);
+            cell.setForegroundColor(attributes.foreground());
+            cell.setBackgroundColor(attributes.background());
+            cell.setStyles(attributes.styles());
+        }
+    }
+
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder(cells.length);

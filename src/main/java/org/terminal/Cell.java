@@ -57,6 +57,11 @@ class Cell {
         styles.remove(style);
     }
 
+    void setStyles(Set<Style> styles) {
+        this.styles.clear();
+        this.styles.addAll(styles);
+    }
+
     char getPrintableCharacter() {
         return character == '\0' ? ' ' : character;
     }
