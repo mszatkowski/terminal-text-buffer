@@ -60,4 +60,11 @@ class Cell {
     char getPrintableCharacter() {
         return character == '\0' ? ' ' : character;
     }
+
+    public void clear() {
+        this.character = '\0';
+        this.foregroundColor = TerminalColor.DEFAULT;
+        this.backgroundColor = TerminalColor.DEFAULT;
+        this.styles.clear();
+    }
 }

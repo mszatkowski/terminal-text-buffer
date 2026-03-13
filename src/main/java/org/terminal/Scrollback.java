@@ -39,6 +39,10 @@ class Scrollback {
         return width;
     }
 
+    void clear() {
+        lines.clear();
+    }
+
     @Override
     public String toString() {
         int capacity = (width + 1) * getSize();

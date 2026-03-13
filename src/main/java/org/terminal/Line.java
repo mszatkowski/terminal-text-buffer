@@ -18,6 +18,12 @@ class Line {
         cells[index] = cell;
     }
 
+    void clear() {
+        for (Cell cell : cells) {
+            cell.clear();
+        }
+    }
+
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder(cells.length);

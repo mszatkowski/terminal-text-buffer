@@ -23,12 +23,18 @@ class Screen {
         return lines[y];
     }
 
-    public int getWidth() {
+    int getWidth() {
         return width;
     }
 
-    public int getHeight() {
+    int getHeight() {
         return height;
+    }
+
+    void clear() {
+        for (Line line : lines) {
+            line.clear();
+        }
     }
 
     @Override

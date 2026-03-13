@@ -120,4 +120,13 @@ public class TerminalBuffer {
     public void clearStyles() {
         this.currentStyles.clear();
     }
+
+    public void clearScreen() {
+        this.screen.clear();
+    }
+
+    public void clearScreenAndScrollback() {
+        this.screen.clear();
+        this.scrollback.clear();
+    }
 }
