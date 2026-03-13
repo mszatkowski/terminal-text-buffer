@@ -16,11 +16,11 @@ class Scrollback {
     }
 
     void push(Line line) {
-        lines.add(line);
+        if (maxLines == 0) return;
 
-        if (lines.size() > maxLines) {
-            lines.removeFirst();
-        }
+        if (lines.size() == maxLines) lines.removeFirst();
+
+        lines.add(line);
     }
 
     Cell getCellAt(int x, int y) {
