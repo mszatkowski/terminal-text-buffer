@@ -37,7 +37,7 @@ class Screen {
         }
     }
 
-    public void fillLine(int row, char character, CellAttributes attributes) {
+    void fillLine(int row, char character, CellAttributes attributes) {
         getLine(row).fill(character, attributes);
     }
 

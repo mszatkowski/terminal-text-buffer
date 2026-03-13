@@ -24,7 +24,7 @@ class Line {
         }
     }
 
-    public void fill(char character, CellAttributes attributes) {
+    void fill(char character, CellAttributes attributes) {
         for (Cell cell : cells) {
             cell.setCharacter(character);
             cell.setForegroundColor(attributes.foreground());
