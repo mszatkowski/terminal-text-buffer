@@ -53,6 +53,14 @@ class Screen {
         return line;
     }
 
+    void setCell(int column, int row, char character, CellAttributes attributes) {
+        Cell cell = getCell(column, row);
+        cell.setCharacter(character);
+        cell.setForegroundColor(attributes.foreground());
+        cell.setBackgroundColor(attributes.background());
+        cell.setStyles(attributes.styles());
+    }
+
     @Override
     public String toString() {
         int capacity = (width + 1) * height;

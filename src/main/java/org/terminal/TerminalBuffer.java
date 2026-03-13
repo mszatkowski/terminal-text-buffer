@@ -24,6 +24,36 @@ public class TerminalBuffer {
         this.currentStyles = EnumSet.noneOf(Style.class);
     }
 
+    public void write(String text) {
+        CellAttributes attributes = new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
+
+        for (char character : text.toCharArray()) {
+            if (character == '\n') {
+                cursorX = 0;
+                cursorY++;
+                handleScroll();
+                continue;
+            }
+            screen.setCell(cursorX, cursorY, character, attributes);
+
+            cursorX++;
+
+            if (cursorX >= screen.getWidth()) {
+                cursorX = 0;
+                cursorY++;
+                handleScroll();
+            }
+        }
+
+    }
+
+    private void handleScroll() {
+        if (cursorY >= screen.getHeight()) {
+            insertEmptyLineAtBottom();
+            cursorY = screen.getHeight() - 1;
+        }
+    }
+
     public void insertEmptyLineAtBottom() {
         Line topLine = screen.scrollUp();
         scrollback.push(topLine);
