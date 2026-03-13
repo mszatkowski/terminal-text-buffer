@@ -2,12 +2,14 @@ package org.terminal;
 
 class Line {
     private final Cell[] cells;
+    private boolean isWrapped;
 
     Line(int width) {
         cells = new Cell[width];
         for (int i = 0; i < width; i++) {
             cells[i] = new Cell('\0');
         }
+        this.isWrapped = false;
     }
 
     Cell getCell(int index) {
@@ -22,6 +24,7 @@ class Line {
         for (Cell cell : cells) {
             cell.clear();
         }
+        isWrapped = false;
     }
 
     void fill(char character, CellAttributes attributes) {
@@ -31,6 +34,14 @@ class Line {
             cell.setBackgroundColor(attributes.background());
             cell.setStyles(attributes.styles());
         }
+    }
+
+    void setWrapped(boolean wrapped) {
+        isWrapped = wrapped;
+    }
+
+    boolean isWrapped() {
+        return isWrapped;
     }
 
     @Override
