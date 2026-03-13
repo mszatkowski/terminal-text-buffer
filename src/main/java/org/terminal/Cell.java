@@ -80,4 +80,11 @@ class Cell {
         this.backgroundColor = TerminalColor.DEFAULT;
         this.styles.clear();
     }
+
+    boolean isDefault() {
+        return character == '\0'
+                && styles.isEmpty()
+                && foregroundColor == TerminalColor.DEFAULT
+                && backgroundColor == TerminalColor.DEFAULT;
+    }
 }

@@ -44,6 +44,10 @@ class Line {
         return isWrapped;
     }
 
+    int getWidth() {
+        return cells.length;
+    }
+
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder(cells.length);

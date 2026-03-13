@@ -1,5 +1,8 @@
 package org.terminal;
 
+import java.util.Arrays;
+import java.util.List;
+
 class Screen {
 
     private final int width;
@@ -13,6 +16,10 @@ class Screen {
         for (int i = 0; i < height; i++) {
             lines[i] = new Line(width);
         }
+    }
+
+    List<Line> getAllLines() {
+        return Arrays.asList(lines);
     }
 
     Cell getCell(int x, int y) {

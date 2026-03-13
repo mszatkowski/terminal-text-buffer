@@ -83,8 +83,8 @@ public class TerminalBufferTest {
 
         buffer.write("ABC");
 
-        assertThat(buffer.getCursorColumn()).isEqualTo(0);
-        assertThat(buffer.getCursorRow()).isEqualTo(1);
+        assertThat(buffer.getCursorColumn()).isEqualTo(3);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
     }
 
     @Test
@@ -126,11 +126,11 @@ public class TerminalBufferTest {
         TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
 
         buffer.write("ABC");
-        buffer.write("D");
+        buffer.write("DE");
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
                 "CD\n" +
-                        "  "
+                        "E "
         );
     }
 
@@ -146,7 +146,7 @@ public class TerminalBufferTest {
         buffer.write("C");
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
-                "CB\n" +
+                "AC\n" +
                         "  "
         );
     }
@@ -231,8 +231,8 @@ public class TerminalBufferTest {
 
         buffer.insert("ABC");
 
-        assertThat(buffer.getCursorColumn()).isEqualTo(0);
-        assertThat(buffer.getCursorRow()).isEqualTo(1);
+        assertThat(buffer.getCursorColumn()).isEqualTo(3);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
     }
 
     @Test
@@ -296,8 +296,8 @@ public class TerminalBufferTest {
         buffer.insert("DE");
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
-                "DE\n" +
-                        "  "
+                "AB\n" +
+                        "DE"
         );
     }
 
@@ -312,7 +312,7 @@ public class TerminalBufferTest {
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
                 "A \n" +
-                "B ");
+                        "B ");
     }
 
     @Test
@@ -326,7 +326,7 @@ public class TerminalBufferTest {
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
                 "  \n" +
-                "  ");
+                        "  ");
     }
 
     @Test
@@ -388,7 +388,7 @@ public class TerminalBufferTest {
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
                 "  \n" +
-                "  ");
+                        "  ");
     }
 
     @Test
@@ -422,7 +422,7 @@ public class TerminalBufferTest {
 
         assertThat(buffer.getEntireContentAsString()).isEqualTo(
                 "AA\n" +
-                "  ");
+                        "  ");
     }
 
     @Test
@@ -492,5 +492,116 @@ public class TerminalBufferTest {
         assertThatThrownBy(() -> buffer.getLineAsString(10))
                 .isInstanceOf(IndexOutOfBoundsException.class)
                 .hasMessage("Invalid row: 10");
+    }
+
+    @Test
+    void resize_whenDecreasingHeight_shouldSpillToScrollback() {
+        int width = 2;
+        int height = 3;
+        int maxScrollback = 1;
+        TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
+
+        buffer.write("AA\nBB\nC");
+
+        buffer.resizeScreen(2, 2);
+
+        assertThat(buffer.getEntireContentAsString()).isEqualTo(
+                "AA\n" +
+                        "BB\n" +
+                        "C "
+        );
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "BB\n" +
+                        "C "
+        );
+    }
+
+    @Test
+    void resize_whenIncreasingHeight_shouldKeepContentAndAddEmptyLinesAtBottom() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 2);
+        buffer.write("A");
+
+        buffer.resizeScreen(2, 4);
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "A \n" +
+                        "  \n" +
+                        "  \n" +
+                        "  "
+        );
+        assertThat(buffer.getScrollbackAsString()).isEmpty();
+    }
+
+    @Test
+    void resize_whenDecreasingWidth_shouldWrapLinesAndSpillToScrollback() {
+        TerminalBuffer buffer = new TerminalBuffer(4, 2, 5);
+        buffer.write("12345678");
+
+        buffer.resizeScreen(2, 2);
+
+        assertThat(buffer.getScrollbackAsString()).isEqualTo(
+                "12\n" +
+                        "34"
+        );
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "56\n" +
+                        "78"
+        );
+    }
+
+    @Test
+    void resize_whenIncreasingWidth_shouldUnwrapLines() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 2);
+        buffer.write("1234");
+
+        buffer.resizeScreen(4, 2);
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "1234\n" +
+                        "    "
+        );
+    }
+
+    @Test
+    void resize_whenDecreasingHeightExceedsMaxScrollback_shouldDropOldestLines() {
+        int width = 2;
+        int height = 4;
+        int maxScrollback = 1;
+        TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
+
+        buffer.write("AA\nBB\nCC\nDD");
+
+        buffer.resizeScreen(2, 1);
+
+        assertThat(buffer.getScrollbackAsString()).isEqualTo("CC");
+        assertThat(buffer.getScreenAsString()).isEqualTo("DD");
+    }
+
+    @Test
+    void resize_shouldKeepCursorOnCorrectCharacterWhenWrapping() {
+        TerminalBuffer buffer = new TerminalBuffer(4, 2, 2);
+        buffer.write("ABC");
+
+        assertThat(buffer.getCursorColumn()).isEqualTo(3);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
+
+        buffer.resizeScreen(2, 2);
+
+        assertThat(buffer.getCursorColumn()).isEqualTo(1);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
+    }
+
+    @Test
+    void resize_shouldKeepCursorOnCorrectCharacterWhenUnwrapping() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 2);
+        buffer.write("ABC");
+
+        assertThat(buffer.getCursorColumn()).isEqualTo(1);
+        assertThat(buffer.getCursorRow()).isEqualTo(1);
+
+        buffer.resizeScreen(4, 2);
+
+        assertThat(buffer.getCursorColumn()).isEqualTo(3);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
     }
 }

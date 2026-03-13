@@ -43,6 +43,14 @@ class Scrollback {
         lines.clear();
     }
 
+    int getMaxLines() {
+        return maxLines;
+    }
+
+    List<Line> getAllLines() {
+        return lines;
+    }
+
     @Override
     public String toString() {
         int capacity = (width + 1) * getSize();
