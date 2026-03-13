@@ -61,6 +61,26 @@ class Screen {
         cell.setStyles(attributes.styles());
     }
 
+    void insertCharAt(int column, int row, char character, CellAttributes attributes) {
+        for (int y = height - 1; y >= row; y--) {
+            int stopColumn = y == row ? column + 1 : 0;
+
+            for (int x = width - 1; x >= stopColumn; x--) {
+                Cell currentCell = getCell(x, y);
+                Cell previousCell;
+
+                if (x == 0) {
+                    previousCell = getCell(width - 1, y - 1);
+                } else {
+                    previousCell = getCell(x - 1, y);
+                }
+
+                currentCell.copyFrom(previousCell);
+            }
+        }
+        setCell(column, row, character, attributes);
+    }
+
     @Override
     public String toString() {
         int capacity = (width + 1) * height;

@@ -21,6 +21,14 @@ class Cell {
         this.styles.addAll(styles);
     }
 
+    void copyFrom(Cell other) {
+        this.character = other.character;
+        this.foregroundColor = other.foregroundColor;
+        this.backgroundColor = other.backgroundColor;
+        this.styles.clear();
+        this.styles.addAll(other.styles);
+    }
+
     char getCharacter() {
         return character;
     }
