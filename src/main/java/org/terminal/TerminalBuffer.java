@@ -29,15 +29,17 @@ public class TerminalBuffer {
     public void resizeScreen(int newWidth, int newHeight) {
         Scrollback newScrollback = reflowScrollback(newWidth);
 
-        Cell cursorTarget = getCursorTargetCell();
-        List<List<Cell>> unwrappedScreen = unwrapLines(screen.getAllLines(), cursorTarget);
+        int safeCursorX = Math.min(cursorX, screen.getWidth() - 1);
+        int safeCursorY = Math.min(cursorY, screen.getHeight() - 1);
+
+        List<LogicalLine> unwrappedScreen = unwrapLines(screen.getAllLines(), safeCursorX, safeCursorY);
         List<Line> newScreenLines = wrapLogicalLines(unwrappedScreen, newWidth);
 
         int spillCount = Math.max(0, newScreenLines.size() - newHeight);
         spillLinesToScrollback(newScreenLines, spillCount, newScrollback);
 
         Screen newScreen = buildNewScreen(newScreenLines, spillCount, newWidth, newHeight);
-        adjustCursorPosition(unwrappedScreen, cursorTarget, newWidth, spillCount, newScreenLines.size(), newHeight);
+        updateCursorPosition(unwrappedScreen, newWidth, newHeight, spillCount, newScreenLines.size());
 
         this.screen = newScreen;
         this.scrollback = newScrollback;
@@ -45,19 +47,13 @@ public class TerminalBuffer {
 
     private Scrollback reflowScrollback(int newWidth) {
         Scrollback newScrollback = new Scrollback(scrollback.getMaxLines(), newWidth);
-        List<List<Cell>> unwrapped = unwrapLines(scrollback.getAllLines(), null);
+        List<LogicalLine> unwrapped = unwrapLines(scrollback.getAllLines(), -1, -1);
         List<Line> reflowedLines = wrapLogicalLines(unwrapped, newWidth);
 
         for (Line line : reflowedLines) {
             newScrollback.push(line);
         }
         return newScrollback;
-    }
-
-    private Cell getCursorTargetCell() {
-        int safeCursorX = Math.min(cursorX, screen.getWidth() - 1);
-        int safeCursorY = Math.min(cursorY, screen.getHeight() - 1);
-        return getCellAt(safeCursorX, safeCursorY);
     }
 
     private void spillLinesToScrollback(List<Line> lines, int spillCount, Scrollback targetScrollback) {
@@ -74,7 +70,7 @@ public class TerminalBuffer {
             Line sourceLine = lines.get(i);
             Line destinationLine = newScreen.getLine(targetRow);
             for (int x = 0; x < sourceLine.getWidth(); x++) {
-                destinationLine.getCell(x).copyFrom(sourceLine.getCell(x));
+                destinationLine.copyCellFrom(x, sourceLine, x);
             }
             destinationLine.setWrapped(sourceLine.isWrapped());
             targetRow++;
@@ -82,49 +78,58 @@ public class TerminalBuffer {
         return newScreen;
     }
 
-    private void adjustCursorPosition(List<List<Cell>> logicalLines, Cell cursorTarget, int newWidth, int spillCount, int totalLines, int newHeight) {
-        int linesBefore = 0;
+    private void updateCursorPosition(List<LogicalLine> unwrappedScreen, int newWidth, int newHeight,
+                                      int spillCount, int totalScreenLines) {
+        int safeX = Math.min(cursorX, screen.getWidth() - 1);
+        int safeY = Math.min(cursorY, screen.getHeight() - 1);
 
-        for (List<Cell> logicalLine : logicalLines) {
-            if (logicalLine.isEmpty()) {
-                linesBefore++;
-                continue;
-            }
-
-            int targetIndex = logicalLine.indexOf(cursorTarget);
-            if (targetIndex != -1) {
-                this.cursorX = targetIndex % newWidth;
-                this.cursorY = linesBefore + (targetIndex / newWidth);
-                break;
-            }
-
-            linesBefore += (logicalLine.size() + newWidth - 1) / newWidth;
+        int startRow = safeY;
+        while (startRow > 0 && screen.getLine(startRow - 1).isWrapped()) {
+            startRow--;
         }
 
-        this.cursorX = Math.clamp(this.cursorX, 0, newWidth - 1);
-        this.cursorY -= spillCount;
+        int logicalLineIndex = 0;
+        for (int y = 0; y < startRow; y++) {
+            if (!screen.getLine(y).isWrapped()) {
+                logicalLineIndex++;
+            }
+        }
 
-        if (this.cursorY < 0) {
+        int cursorOffset = (safeY - startRow) * screen.getWidth() + safeX;
+
+        int linesBefore = 0;
+        for (int i = 0; i < logicalLineIndex && i < unwrappedScreen.size(); i++) {
+            LogicalLine line = unwrappedScreen.get(i);
+            linesBefore += line.isEmpty() ? 1 : (line.length() + newWidth - 1) / newWidth;
+        }
+
+        this.cursorX = cursorOffset % newWidth;
+        int adjustedY = linesBefore + (cursorOffset / newWidth) - spillCount;
+
+        if (adjustedY < 0) {
             this.cursorY = 0;
-        } else if (this.cursorY >= totalLines) {
+        } else if (adjustedY >= totalScreenLines) {
             this.cursorY = newHeight - 1;
+        } else {
+            this.cursorY = adjustedY;
         }
     }
 
-    private List<List<Cell>> unwrapLines(List<Line> lines, Cell cellTargetedByCursor) {
-        List<List<Cell>> unwrapped = new ArrayList<>();
-        List<Cell> currentLogicalLine = new ArrayList<>();
+    private List<LogicalLine> unwrapLines(List<Line> lines, int cursorTargetX, int cursorTargetY) {
+        List<LogicalLine> unwrapped = new ArrayList<>();
+        LogicalLine currentLogicalLine = new LogicalLine();
 
-        for (Line line : lines) {
-            int effectiveWidth = calculateEffectiveLineWidth(line, cellTargetedByCursor);
+        for (int y = 0; y < lines.size(); y++) {
+            Line line = lines.get(y);
+            int effectiveWidth = calculateEffectiveLineWidth(line, y, cursorTargetX, cursorTargetY);
 
             for (int x = 0; x < effectiveWidth; x++) {
-                currentLogicalLine.add(line.getCell(x));
+                currentLogicalLine.append(line.getCharacter(x), line.getAttributes(x));
             }
 
             if (!line.isWrapped()) {
                 unwrapped.add(currentLogicalLine);
-                currentLogicalLine = new ArrayList<>();
+                currentLogicalLine = new LogicalLine();
             }
         }
 
@@ -135,56 +140,44 @@ public class TerminalBuffer {
         return unwrapped;
     }
 
-    private int calculateEffectiveLineWidth(Line line, Cell cellTargetedByCursor) {
+    private int calculateEffectiveLineWidth(Line line, int rowIndex, int cursorTargetX, int cursorTargetY) {
         if (line.isWrapped()) {
             return line.getWidth();
         }
 
         int lastContentIndex = findLastNonDefaultCellIndex(line);
-        int cursorColumn = findCellColumn(line, cellTargetedByCursor);
+        int cursorColumn = (rowIndex == cursorTargetY) ? cursorTargetX : -1;
 
         int lastValidIndex = Math.max(lastContentIndex, cursorColumn);
-        return lastValidIndex + 1;
+        return Math.min(line.getWidth(), lastValidIndex + 1);
     }
 
     private int findLastNonDefaultCellIndex(Line line) {
         int index = line.getWidth() - 1;
-        while (index >= 0 && line.getCell(index).isDefault()) {
+        while (index >= 0 && line.isDefaultAt(index)) {
             index--;
         }
         return index;
     }
 
-    private int findCellColumn(Line line, Cell target) {
-        if (target == null) {
-            return -1;
-        }
-        for (int x = 0; x < line.getWidth(); x++) {
-            if (line.getCell(x) == target) {
-                return x;
-            }
-        }
-        return -1;
-    }
-
-    private List<Line> wrapLogicalLines(List<List<Cell>> logicalLines, int newWidth) {
+    private List<Line> wrapLogicalLines(List<LogicalLine> logicalLines, int newWidth) {
         List<Line> reflowedLines = new ArrayList<>();
 
-        for (List<Cell> logicalLine : logicalLines) {
+        for (LogicalLine logicalLine : logicalLines) {
             if (logicalLine.isEmpty()) {
                 reflowedLines.add(new Line(newWidth));
                 continue;
             }
 
-            for (int offset = 0; offset < logicalLine.size(); offset += newWidth) {
+            for (int offset = 0; offset < logicalLine.length(); offset += newWidth) {
                 Line line = new Line(newWidth);
-                int chunkSize = Math.min(newWidth, logicalLine.size() - offset);
+                int chunkSize = Math.min(newWidth, logicalLine.length() - offset);
 
                 for (int x = 0; x < chunkSize; x++) {
-                    line.getCell(x).copyFrom(logicalLine.get(offset + x));
+                    line.setCell(x, logicalLine.getCharacter(offset + x), logicalLine.getAttributes(offset + x));
                 }
 
-                if (offset + chunkSize < logicalLine.size()) {
+                if (offset + chunkSize < logicalLine.length()) {
                     line.setWrapped(true);
                 }
                 reflowedLines.add(line);
@@ -260,7 +253,7 @@ public class TerminalBuffer {
     }
 
     private CellAttributes currentAttributes() {
-        return new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
+        return CellAttributes.of(currentForegroundColor, currentBackgroundColor, currentStyles);
     }
 
     public String getEntireContentAsString() {
@@ -279,16 +272,23 @@ public class TerminalBuffer {
     }
 
     public char getCharacterAtPosition(int column, int row) {
-        return getCellAt(column, row).getCharacter();
+        if (row >= 0 && row < screen.getHeight()) {
+            return screen.getCharacter(column, row);
+        } else if (row < 0 && -row <= scrollback.getSize()) {
+            return scrollback.getCharacterAt(column, row);
+        } else {
+            throw new IndexOutOfBoundsException("Invalid coordinates: " + column + ", " + row);
+        }
     }
 
     public CellAttributes getCellAttributesAt(int column, int row) {
-        Cell cell = getCellAt(column, row);
-        return new CellAttributes(
-                cell.getForegroundColor(),
-                cell.getBackgroundColor(),
-                cell.getStyles()
-        );
+        if (row >= 0 && row < screen.getHeight()) {
+            return screen.getAttributes(column, row);
+        } else if (row < 0 && -row <= scrollback.getSize()) {
+            return scrollback.getAttributesAt(column, row);
+        } else {
+            throw new IndexOutOfBoundsException("Invalid coordinates: " + column + ", " + row);
+        }
     }
 
     public String getLineAsString(int y) {
@@ -298,16 +298,6 @@ public class TerminalBuffer {
             return scrollback.getLine(y).toString();
         } else {
             throw new IndexOutOfBoundsException("Invalid row: " + y);
-        }
-    }
-
-    private Cell getCellAt(int x, int y) {
-        if (y >= 0 && y < screen.getHeight()) {
-            return screen.getCell(x, y);
-        } else if (y < 0 && -y <= scrollback.getSize()) {
-            return scrollback.getCellAt(x, y);
-        } else {
-            throw new IndexOutOfBoundsException("Invalid coordinates: " + x + ", " + y);
         }
     }
 

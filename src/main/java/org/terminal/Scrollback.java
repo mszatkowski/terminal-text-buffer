@@ -23,8 +23,12 @@ class Scrollback {
         lines.add(line);
     }
 
-    Cell getCellAt(int x, int y) {
-        return getLine(y).getCell(x);
+    char getCharacterAt(int x, int y) {
+        return getLine(y).getCharacter(x);
+    }
+
+    CellAttributes getAttributesAt(int x, int y) {
+        return getLine(y).getAttributes(x);
     }
 
     Line getLine(int index) {

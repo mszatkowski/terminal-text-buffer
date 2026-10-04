@@ -22,12 +22,16 @@ class Screen {
         return Arrays.asList(lines);
     }
 
-    Cell getCell(int x, int y) {
-        return lines[y].getCell(x);
-    }
-
     Line getLine(int y) {
         return lines[y];
+    }
+
+    char getCharacter(int x, int y) {
+        return lines[y].getCharacter(x);
+    }
+
+    CellAttributes getAttributes(int x, int y) {
+        return lines[y].getAttributes(x);
     }
 
     int getWidth() {
@@ -61,28 +65,21 @@ class Screen {
     }
 
     void setCell(int column, int row, char character, CellAttributes attributes) {
-        Cell cell = getCell(column, row);
-        cell.setCharacter(character);
-        cell.setForegroundColor(attributes.foreground());
-        cell.setBackgroundColor(attributes.background());
-        cell.setStyles(attributes.styles());
+        lines[row].setCell(column, character, attributes);
     }
 
     void insertCharAt(int column, int row, char character, CellAttributes attributes) {
         for (int y = height - 1; y >= row; y--) {
-            int stopColumn = y == row ? column + 1 : 0;
+            int stopColumn = (y == row) ? column + 1 : 0;
+            Line currentLine = lines[y];
 
             for (int x = width - 1; x >= stopColumn; x--) {
-                Cell currentCell = getCell(x, y);
-                Cell previousCell;
-
                 if (x == 0) {
-                    previousCell = getCell(width - 1, y - 1);
+                    Line previousLine = lines[y - 1];
+                    currentLine.copyCellFrom(0, previousLine, width - 1);
                 } else {
-                    previousCell = getCell(x - 1, y);
+                    currentLine.copyCellFrom(x, currentLine, x - 1);
                 }
-
-                currentCell.copyFrom(previousCell);
             }
         }
         setCell(column, row, character, attributes);

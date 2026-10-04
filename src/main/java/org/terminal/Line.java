@@ -1,39 +1,59 @@
 package org.terminal;
 
+import java.util.Arrays;
+
 class Line {
-    private final Cell[] cells;
+    private final char[] characters;
+    private final CellAttributes[] attributes;
     private boolean isWrapped;
 
     Line(int width) {
-        cells = new Cell[width];
-        for (int i = 0; i < width; i++) {
-            cells[i] = new Cell('\0');
-        }
+        this.characters = new char[width];
+        this.attributes = new CellAttributes[width];
+        Arrays.fill(this.characters, '\0');
+        Arrays.fill(this.attributes, CellAttributes.DEFAULT);
         this.isWrapped = false;
     }
 
-    Cell getCell(int index) {
-        return cells[index];
+    char getCharacter(int index) {
+        return characters[index];
     }
 
-    void setCell(int index, Cell cell) {
-        cells[index] = cell;
+    void setCharacter(int index, char character) {
+        characters[index] = character;
+    }
+
+    CellAttributes getAttributes(int index) {
+        return attributes[index];
+    }
+
+    void setAttributes(int index, CellAttributes attributes) {
+        this.attributes[index] = attributes;
+    }
+
+    void setCell(int index, char character, CellAttributes attr) {
+        characters[index] = character;
+        attributes[index] = attr;
+    }
+
+    void copyCellFrom(int targetIndex, Line sourceLine, int sourceIndex) {
+        this.characters[targetIndex] = sourceLine.characters[sourceIndex];
+        this.attributes[targetIndex] = sourceLine.attributes[sourceIndex];
     }
 
     void clear() {
-        for (Cell cell : cells) {
-            cell.clear();
-        }
+        Arrays.fill(characters, '\0');
+        Arrays.fill(attributes, CellAttributes.DEFAULT);
         isWrapped = false;
     }
 
-    void fill(char character, CellAttributes attributes) {
-        for (Cell cell : cells) {
-            cell.setCharacter(character);
-            cell.setForegroundColor(attributes.foreground());
-            cell.setBackgroundColor(attributes.background());
-            cell.setStyles(attributes.styles());
-        }
+    void fill(char character, CellAttributes attr) {
+        Arrays.fill(characters, character);
+        Arrays.fill(attributes, attr);
+    }
+
+    boolean isDefaultAt(int index) {
+        return characters[index] == '\0' && attributes[index].equals(CellAttributes.DEFAULT);
     }
 
     void setWrapped(boolean wrapped) {
@@ -45,14 +65,14 @@ class Line {
     }
 
     int getWidth() {
-        return cells.length;
+        return characters.length;
     }
 
     @Override
     public String toString() {
-        StringBuilder stringBuilder = new StringBuilder(cells.length);
-        for (Cell cell : cells) {
-            stringBuilder.append(cell.getPrintableCharacter());
+        StringBuilder stringBuilder = new StringBuilder(characters.length);
+        for (char character : characters) {
+            stringBuilder.append(character == '\0' ? ' ' : character);
         }
         return stringBuilder.toString();
     }

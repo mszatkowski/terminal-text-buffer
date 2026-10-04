@@ -9,7 +9,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TerminalBufferTest {
+class TerminalBufferTest {
 
     @ParameterizedTest(name = "Move {0} by {1} steps -> expect cursor at column {2}, row {3}")
     @CsvSource({
@@ -190,12 +190,12 @@ public class TerminalBufferTest {
         buffer.setForegroundColor(TerminalColor.RED);
         buffer.setBackgroundColor(TerminalColor.GREEN);
 
-        CellAttributes attributes = new CellAttributes(
+        CellAttributes attributes = CellAttributes.of(
                 TerminalColor.RED,
                 TerminalColor.GREEN,
                 Set.of(Style.BOLD)
         );
-        CellAttributes defaultAttributes = new CellAttributes(
+        CellAttributes defaultAttributes = CellAttributes.of(
                 TerminalColor.DEFAULT,
                 TerminalColor.DEFAULT,
                 Set.of()
@@ -340,13 +340,13 @@ public class TerminalBufferTest {
         buffer.setForegroundColor(TerminalColor.RED);
         buffer.setBackgroundColor(TerminalColor.GREEN);
 
-        CellAttributes attributes = new CellAttributes(
+        CellAttributes attributes = CellAttributes.of(
                 TerminalColor.RED,
                 TerminalColor.GREEN,
                 Set.of(Style.BOLD)
         );
 
-        CellAttributes defaultAttributes = new CellAttributes(
+        CellAttributes defaultAttributes = CellAttributes.of(
                 TerminalColor.DEFAULT,
                 TerminalColor.DEFAULT,
                 Set.of()
@@ -367,7 +367,7 @@ public class TerminalBufferTest {
         int maxScrollback = 0;
         TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
 
-        CellAttributes defaultAttributes = new CellAttributes(
+        CellAttributes defaultAttributes = CellAttributes.of(
                 TerminalColor.DEFAULT,
                 TerminalColor.DEFAULT,
                 Set.of()
@@ -398,12 +398,12 @@ public class TerminalBufferTest {
         int maxScrollback = 0;
         TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
 
-        CellAttributes attributes = new CellAttributes(
+        CellAttributes attributes = CellAttributes.of(
                 TerminalColor.RED,
                 TerminalColor.GREEN,
                 Set.of(Style.BOLD)
         );
-        CellAttributes defaultAttributes = new CellAttributes(
+        CellAttributes defaultAttributes = CellAttributes.of(
                 TerminalColor.DEFAULT,
                 TerminalColor.DEFAULT,
                 Set.of()
