@@ -27,220 +27,220 @@ public class TerminalBuffer {
     }
 
     public void resizeScreen(int newWidth, int newHeight) {
-        List<Line> oldScrollbackLines = scrollback.getAllLines();
-        List<List<Cell>> unwrappedScrollbackLines = unwrapLines(oldScrollbackLines, null);
+        Scrollback newScrollback = reflowScrollback(newWidth);
 
-        Scrollback newScrollback = new Scrollback(scrollback.getMaxLines(), newWidth);
-
-        for (List<Cell> unwrappedScrollbackLine : unwrappedScrollbackLines) {
-            List<Line> wrappedBack = wrapBackLines(unwrappedScrollbackLine, newWidth);
-            for (Line line : wrappedBack) {
-                newScrollback.push(line);
-            }
-        }
-
-        int safeCursorX = Math.min(cursorX, screen.getWidth() - 1);
-        int safeCursorY = Math.min(cursorY, screen.getHeight() - 1);
-        Cell cellTargetedByCursor = getCellAt(safeCursorX, safeCursorY);
-
-        int newCursorX = cursorX;
-        int newCursorY = cursorY;
-
-        List<Line> oldScreenLines = screen.getAllLines();
-        List<List<Cell>> unwrappedScreenLines = unwrapLines(oldScreenLines, cellTargetedByCursor);
-
-        List<Line> newScreenLines = new ArrayList<>();
-        for (List<Cell> unwrappedScreenLine : unwrappedScreenLines) {
-            if (unwrappedScreenLine.isEmpty()) {
-                newScreenLines.add(new Line(newWidth));
-                continue;
-            }
-
-            int currentLineIndex = 0;
-            while (currentLineIndex < unwrappedScreenLine.size()) {
-                Line newLine = new Line(newWidth);
-                int charsToCopy = Math.min(newWidth, unwrappedScreenLine.size() - currentLineIndex);
-
-                for (int x = 0; x < charsToCopy; x++) {
-                    Cell originalCell = unwrappedScreenLine.get(currentLineIndex + x);
-                    newLine.getCell(x).copyFrom(originalCell);
-
-                    if (originalCell == cellTargetedByCursor) {
-                        newCursorX = x;
-                        newCursorY = newScreenLines.size();
-                    }
-                }
-                currentLineIndex += charsToCopy;
-                if (currentLineIndex < unwrappedScreenLine.size()) {
-                    newLine.setWrapped(true);
-                }
-                newScreenLines.add(newLine);
-            }
-        }
-
-        Screen newScreen = new Screen(newWidth, newHeight);
+        Cell cursorTarget = getCursorTargetCell();
+        List<List<Cell>> unwrappedScreen = unwrapLines(screen.getAllLines(), cursorTarget);
+        List<Line> newScreenLines = wrapLogicalLines(unwrappedScreen, newWidth);
 
         int spillCount = Math.max(0, newScreenLines.size() - newHeight);
+        spillLinesToScrollback(newScreenLines, spillCount, newScrollback);
+
+        Screen newScreen = buildNewScreen(newScreenLines, spillCount, newWidth, newHeight);
+        adjustCursorPosition(unwrappedScreen, cursorTarget, newWidth, spillCount, newScreenLines.size(), newHeight);
+
+        this.screen = newScreen;
+        this.scrollback = newScrollback;
+    }
+
+    private Scrollback reflowScrollback(int newWidth) {
+        Scrollback newScrollback = new Scrollback(scrollback.getMaxLines(), newWidth);
+        List<List<Cell>> unwrapped = unwrapLines(scrollback.getAllLines(), null);
+        List<Line> reflowedLines = wrapLogicalLines(unwrapped, newWidth);
+
+        for (Line line : reflowedLines) {
+            newScrollback.push(line);
+        }
+        return newScrollback;
+    }
+
+    private Cell getCursorTargetCell() {
+        int safeCursorX = Math.min(cursorX, screen.getWidth() - 1);
+        int safeCursorY = Math.min(cursorY, screen.getHeight() - 1);
+        return getCellAt(safeCursorX, safeCursorY);
+    }
+
+    private void spillLinesToScrollback(List<Line> lines, int spillCount, Scrollback targetScrollback) {
         for (int i = 0; i < spillCount; i++) {
-            newScrollback.push(newScreenLines.get(i));
+            targetScrollback.push(lines.get(i));
         }
+    }
 
-        newCursorX = Math.min(newWidth - 1, Math.max(0, newCursorX));
-        newCursorY -= spillCount;
+    private Screen buildNewScreen(List<Line> lines, int spillCount, int newWidth, int newHeight) {
+        Screen newScreen = new Screen(newWidth, newHeight);
+        int targetRow = 0;
 
-        if (newCursorY < 0) {
-            newCursorY = 0;
-        } else if (newCursorY >= newScreenLines.size()) {
-            newCursorY = newHeight - 1;
-        }
-
-        int writeY = 0;
-        for (int i = spillCount; i < newScreenLines.size(); i++) {
-            Line sourceLine = newScreenLines.get(i);
-            Line destinationLine = newScreen.getLine(writeY);
+        for (int i = spillCount; i < lines.size(); i++) {
+            Line sourceLine = lines.get(i);
+            Line destinationLine = newScreen.getLine(targetRow);
             for (int x = 0; x < sourceLine.getWidth(); x++) {
                 destinationLine.getCell(x).copyFrom(sourceLine.getCell(x));
             }
             destinationLine.setWrapped(sourceLine.isWrapped());
-            writeY++;
+            targetRow++;
+        }
+        return newScreen;
+    }
+
+    private void adjustCursorPosition(List<List<Cell>> logicalLines, Cell cursorTarget, int newWidth, int spillCount, int totalLines, int newHeight) {
+        int linesBefore = 0;
+
+        for (List<Cell> logicalLine : logicalLines) {
+            if (logicalLine.isEmpty()) {
+                linesBefore++;
+                continue;
+            }
+
+            int targetIndex = logicalLine.indexOf(cursorTarget);
+            if (targetIndex != -1) {
+                this.cursorX = targetIndex % newWidth;
+                this.cursorY = linesBefore + (targetIndex / newWidth);
+                break;
+            }
+
+            linesBefore += (logicalLine.size() + newWidth - 1) / newWidth;
         }
 
-        this.screen = newScreen;
-        this.scrollback = newScrollback;
-        this.cursorX = newCursorX;
-        this.cursorY = newCursorY;
+        this.cursorX = Math.clamp(this.cursorX, 0, newWidth - 1);
+        this.cursorY -= spillCount;
+
+        if (this.cursorY < 0) {
+            this.cursorY = 0;
+        } else if (this.cursorY >= totalLines) {
+            this.cursorY = newHeight - 1;
+        }
     }
 
     private List<List<Cell>> unwrapLines(List<Line> lines, Cell cellTargetedByCursor) {
         List<List<Cell>> unwrapped = new ArrayList<>();
-        List<Cell> currentLine = new ArrayList<>();
+        List<Cell> currentLogicalLine = new ArrayList<>();
 
         for (Line line : lines) {
-            int lastValidIndex = line.getWidth() - 1;
-            boolean hasCursor = false;
-            int cursorColumn = -1;
+            int effectiveWidth = calculateEffectiveLineWidth(line, cellTargetedByCursor);
 
-            if (cellTargetedByCursor != null) {
-                for (int x = 0; x < line.getWidth(); x++) {
-                    if (line.getCell(x) == cellTargetedByCursor) {
-                        hasCursor = true;
-                        cursorColumn = x;
-                        break;
-                    }
-                }
+            for (int x = 0; x < effectiveWidth; x++) {
+                currentLogicalLine.add(line.getCell(x));
             }
 
             if (!line.isWrapped()) {
-                while (lastValidIndex >= 0 && line.getCell(lastValidIndex).isDefault()) {
-                    lastValidIndex--;
-                }
-            }
-
-            if (hasCursor && cursorColumn > lastValidIndex) {
-                lastValidIndex = cursorColumn;
-            }
-
-            for (int x = 0; x <= lastValidIndex; x++) {
-                currentLine.add(line.getCell(x));
-            }
-
-            if (!line.isWrapped()) {
-                unwrapped.add(currentLine);
-                currentLine = new ArrayList<>();
+                unwrapped.add(currentLogicalLine);
+                currentLogicalLine = new ArrayList<>();
             }
         }
 
-        if (!currentLine.isEmpty()) {
-            unwrapped.add(currentLine);
+        if (!currentLogicalLine.isEmpty()) {
+            unwrapped.add(currentLogicalLine);
         }
 
         return unwrapped;
     }
 
-    private List<Line> wrapBackLines(List<Cell> unwrappedLine, int width) {
-        List<Line> wrappedLines = new ArrayList<>();
-
-        if (unwrappedLine.isEmpty()) {
-            wrappedLines.add(new Line(width));
-            return wrappedLines;
+    private int calculateEffectiveLineWidth(Line line, Cell cellTargetedByCursor) {
+        if (line.isWrapped()) {
+            return line.getWidth();
         }
 
-        int currentLineIndex = 0;
-        while (currentLineIndex < unwrappedLine.size()) {
-            Line newLine = new Line(width);
-            int toBeCopied = Math.min(width, unwrappedLine.size() - currentLineIndex);
+        int lastContentIndex = findLastNonDefaultCellIndex(line);
+        int cursorColumn = findCellColumn(line, cellTargetedByCursor);
 
-            for (int x = 0; x < toBeCopied; x++) {
-                newLine.getCell(x).copyFrom(unwrappedLine.get(currentLineIndex + x));
-            }
-
-            currentLineIndex += toBeCopied;
-
-            if (currentLineIndex < unwrappedLine.size()) {
-                newLine.setWrapped(true);
-            }
-            wrappedLines.add(newLine);
-        }
-        return wrappedLines;
+        int lastValidIndex = Math.max(lastContentIndex, cursorColumn);
+        return lastValidIndex + 1;
     }
 
-    public void insert(String text) {
-        CellAttributes attributes = new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
+    private int findLastNonDefaultCellIndex(Line line) {
+        int index = line.getWidth() - 1;
+        while (index >= 0 && line.getCell(index).isDefault()) {
+            index--;
+        }
+        return index;
+    }
 
-        for (char character : text.toCharArray()) {
-            if (character == '\n') {
-                if (cursorX >= screen.getWidth()) {
-                    cursorX = screen.getWidth() - 1;
-                }
-                screen.getLine(cursorY).setWrapped(false);
-                cursorX = 0;
-                cursorY++;
-                handleScroll();
+    private int findCellColumn(Line line, Cell target) {
+        if (target == null) {
+            return -1;
+        }
+        for (int x = 0; x < line.getWidth(); x++) {
+            if (line.getCell(x) == target) {
+                return x;
+            }
+        }
+        return -1;
+    }
+
+    private List<Line> wrapLogicalLines(List<List<Cell>> logicalLines, int newWidth) {
+        List<Line> reflowedLines = new ArrayList<>();
+
+        for (List<Cell> logicalLine : logicalLines) {
+            if (logicalLine.isEmpty()) {
+                reflowedLines.add(new Line(newWidth));
                 continue;
             }
 
-            insertChar(character, attributes);
+            for (int offset = 0; offset < logicalLine.size(); offset += newWidth) {
+                Line line = new Line(newWidth);
+                int chunkSize = Math.min(newWidth, logicalLine.size() - offset);
+
+                for (int x = 0; x < chunkSize; x++) {
+                    line.getCell(x).copyFrom(logicalLine.get(offset + x));
+                }
+
+                if (offset + chunkSize < logicalLine.size()) {
+                    line.setWrapped(true);
+                }
+                reflowedLines.add(line);
+            }
+        }
+
+        return reflowedLines;
+    }
+
+    public void write(String text) {
+        CellAttributes attributes = currentAttributes();
+
+        for (char character : text.toCharArray()) {
+            if (character == '\n') {
+                handleNewLine();
+                continue;
+            }
+
+            wrapLineIfAtEdge();
+            screen.setCell(cursorX, cursorY, character, attributes);
+            cursorX++;
         }
     }
 
-    private void insertChar(char character, CellAttributes attributes) {
+    public void insert(String text) {
+        CellAttributes attributes = currentAttributes();
+
+        for (char character : text.toCharArray()) {
+            if (character == '\n') {
+                handleNewLine();
+                continue;
+            }
+
+            wrapLineIfAtEdge();
+            screen.insertCharAt(cursorX, cursorY, character, attributes);
+            cursorX++;
+        }
+    }
+
+    private void handleNewLine() {
+        if (cursorX >= screen.getWidth()) {
+            cursorX = screen.getWidth() - 1;
+        }
+        screen.getLine(cursorY).setWrapped(false);
+        cursorX = 0;
+        cursorY++;
+        handleScroll();
+    }
+
+    private void wrapLineIfAtEdge() {
         if (cursorX >= screen.getWidth()) {
             screen.getLine(cursorY).setWrapped(true);
             cursorX = 0;
             cursorY++;
             handleScroll();
         }
-        screen.insertCharAt(cursorX, cursorY, character, attributes);
-        cursorX++;
-    }
-
-    public void write(String text) {
-        CellAttributes attributes = new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
-
-        for (char character : text.toCharArray()) {
-            if (character == '\n') {
-                if (cursorX >= screen.getWidth()) {
-                    cursorX = screen.getWidth() - 1;
-                }
-                screen.getLine(cursorY).setWrapped(false);
-                cursorX = 0;
-                cursorY++;
-                handleScroll();
-                continue;
-            }
-
-            if (cursorX >= screen.getWidth()) {
-                screen.getLine(cursorY).setWrapped(true);
-                cursorX = 0;
-                cursorY++;
-                handleScroll();
-            }
-
-            screen.setCell(cursorX, cursorY, character, attributes);
-            cursorX++;
-
-        }
-
     }
 
     private void handleScroll() {
@@ -256,8 +256,11 @@ public class TerminalBuffer {
     }
 
     public void fillLine(char character) {
-        CellAttributes attributes = new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
-        screen.fillLine(cursorY, character, attributes);
+        screen.fillLine(cursorY, character, currentAttributes());
+    }
+
+    private CellAttributes currentAttributes() {
+        return new CellAttributes(currentForegroundColor, currentBackgroundColor, currentStyles);
     }
 
     public String getEntireContentAsString() {
@@ -291,7 +294,7 @@ public class TerminalBuffer {
     public String getLineAsString(int y) {
         if (y >= 0 && y < screen.getHeight()) {
             return screen.getLine(y).toString();
-        } else if (y < 0 && -y <= scrollback.getSize()){
+        } else if (y < 0 && -y <= scrollback.getSize()) {
             return scrollback.getLine(y).toString();
         } else {
             throw new IndexOutOfBoundsException("Invalid row: " + y);
@@ -301,7 +304,7 @@ public class TerminalBuffer {
     private Cell getCellAt(int x, int y) {
         if (y >= 0 && y < screen.getHeight()) {
             return screen.getCell(x, y);
-        } else if (y < 0 && -y <= scrollback.getSize()){
+        } else if (y < 0 && -y <= scrollback.getSize()) {
             return scrollback.getCellAt(x, y);
         } else {
             throw new IndexOutOfBoundsException("Invalid coordinates: " + x + ", " + y);
@@ -309,8 +312,8 @@ public class TerminalBuffer {
     }
 
     public void setCursorPosition(int column, int row) {
-        this.cursorX = Math.max(0, Math.min(column, screen.getWidth() - 1));
-        this.cursorY = Math.max(0, Math.min(row, screen.getHeight() - 1));
+        this.cursorX = Math.clamp(column, 0, screen.getWidth() - 1);
+        this.cursorY = Math.clamp(row, 0, screen.getHeight() - 1);
     }
 
     public void moveCursorUp(int n) {
