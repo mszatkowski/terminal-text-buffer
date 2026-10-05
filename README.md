@@ -1,31 +1,48 @@
 # Terminal Text Buffer
 
-A core Java data structure for terminal emulators. This project implements the underlying grid system used to store, manipulate, and render text in a command-line interface, complete with cursor management, text styling, and dynamic resizing.
+A Java implementation of a core text buffer for a terminal emulator. It handles the 2D character grid, scrollback history, cursor movement, text styling, and dynamic screen resizing (reflow).
 
 ## Features
 
-* **Screen & Scrollback Separation:** Accurately models a terminal by splitting the active, fixed-size grid (Screen) from the rolling history log (Scrollback).
-* **Accurate Cursor Management:** Implements standard VT100 behavior, including the "pending wrap" state at the right edge of the screen to prevent accidental blank lines.
-* **Text Styling & Colors:** Supports the standard 16 terminal colors (foreground and background) and text styles like `BOLD`, `ITALIC`, and `UNDERLINE`.
-* **Dynamic Reflow Resizing:** Intelligently unwraps and re-wraps text when the terminal dimensions change, ensuring text isn't lost and the cursor remains on the correct character.
-* **Editing Modes:** Supports both `write` (overwriting existing characters) and `insert` (shifting existing characters to the right).
+* **Screen & Scrollback:** Splits the terminal state into an active, fixed-size grid (screen) and a rolling history log (scrollback).
+* **Dynamic Reflow:** Unwraps and re-wraps text when the terminal is resized, preserving text layout and adjusting the cursor to stay on the correct character.
+* **Editing Modes:** Supports both standard overwriting (`write`) and character shifting (`insert`).
+* **Text Styling & Colors:** Supports 16 standard terminal colors (foreground/background) and text styles (`BOLD`, `ITALIC`, `UNDERLINE`).
+* **Cursor Navigation:** Standard cursor movement (up, down, left, right) with proper boundary handling.
 
-## Example Usage
+## Under the Hood
+
+A few design choices made to keep the buffer lightweight and fast:
+
+* **Parallel arrays instead of `Cell` objects:** To reduce Garbage Collector pressure, each line stores characters and styles in primitive parallel arrays (`char[]` and `CellAttributes[]`). 
+* **Flyweight pattern for attributes:** Most characters share default or identical styles. `CellAttributes` instances are cached and reused, keeping memory allocations very low during heavy text streaming.
+* **Ring buffers for scrolling:** Both the active screen and the scrollback history are backed by circular arrays with modulo indexing. This makes scrolling an $O(1)$ pointer increment instead of shifting elements across the array.
+
+## Usage Example
 
 ```java
-// Initialize an 80x24 terminal with 1000 lines of scrollback
+// Create an 80x24 buffer with 1000 lines of history
 TerminalBuffer buffer = new TerminalBuffer(80, 24, 1000);
 
-// Apply styles and write text
+// Style and write text
 buffer.setForegroundColor(TerminalColor.BRIGHT_GREEN);
 buffer.addStyle(Style.BOLD);
 buffer.write("System initialized.\n");
 
-// Insert text and reflow
-buffer.insert("Awaiting input...");
+// Insert text
+buffer.insert("Awaiting command...");
 
-// Resize the terminal (text will automatically reflow to fit)
+// Resize the terminal (text reflows to fit new width)
 buffer.resizeScreen(40, 24);
 
-// Get the current screen output
+// Get current screen content
 System.out.println(buffer.getScreenAsString());
+```
+
+## Build & Run Tests
+
+Requires **Java 23** and **Maven**.
+
+```bash
+mvn clean test
+```
