@@ -604,4 +604,79 @@ class TerminalBufferTest {
         assertThat(buffer.getCursorColumn()).isEqualTo(3);
         assertThat(buffer.getCursorRow()).isEqualTo(0);
     }
+
+    @Test
+    void cellAttributes_shouldReuseSameInstanceForIdenticalAttributes() {
+        TerminalBuffer buffer = new TerminalBuffer(4, 2, 0);
+
+        buffer.setForegroundColor(TerminalColor.RED);
+        buffer.addStyle(Style.BOLD);
+        buffer.write("AB");
+
+        CellAttributes attrA = buffer.getCellAttributesAt(0, 0);
+        CellAttributes attrB = buffer.getCellAttributesAt(1, 0);
+
+        assertThat(attrA).isSameAs(attrB);
+    }
+
+    @Test
+    void defaultCellAttributes_shouldShareCanonicalDefaultInstance() {
+        TerminalBuffer buffer = new TerminalBuffer(4, 2, 0);
+
+        assertThat(buffer.getCellAttributesAt(0, 0)).isSameAs(CellAttributes.DEFAULT);
+        assertThat(buffer.getCellAttributesAt(3, 1)).isSameAs(CellAttributes.DEFAULT);
+    }
+
+    @Test
+    void screenRingBuffer_whenScrolledMultipleTimesBeyondHeight_shouldMaintainCorrectOrder() {
+        int width = 3;
+        int height = 3;
+        TerminalBuffer buffer = new TerminalBuffer(width, height, 10);
+
+        buffer.write("111\n222\n333\n444\n555\n666");
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "444\n" +
+                        "555\n" +
+                        "666"
+        );
+    }
+
+    @Test
+    void scrollbackRingBuffer_whenOverfilled_shouldDropOldestLinesAndPreserveOrder() {
+        int width = 2;
+        int height = 1;
+        int maxScrollback = 3;
+        TerminalBuffer buffer = new TerminalBuffer(width, height, maxScrollback);
+
+        buffer.write("11\n22\n33\n44\n55");
+
+        assertThat(buffer.getScrollbackAsString()).isEqualTo(
+                "22\n" +
+                        "33\n" +
+                        "44"
+        );
+        assertThat(buffer.getScreenAsString()).isEqualTo("55");
+    }
+
+    @Test
+    void resize_whenScreenRingBufferHasRotated_shouldCorrectlyReflowContent() {
+        TerminalBuffer buffer = new TerminalBuffer(4, 3, 5);
+
+        buffer.write("AAAA\nBBBB\nCCCC\nDDDD");
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "BBBB\n" +
+                        "CCCC\n" +
+                        "DDDD"
+        );
+
+        buffer.resizeScreen(2, 3);
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "CC\n" +
+                        "DD\n" +
+                        "DD"
+        );
+    }
 }
