@@ -1,4 +1,4 @@
-package org.terminal;
+package org.terminal.engine;
 
 public enum TerminalColor {
     DEFAULT,

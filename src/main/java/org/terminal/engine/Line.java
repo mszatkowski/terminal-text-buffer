@@ -1,4 +1,4 @@
-package org.terminal;
+package org.terminal.engine;
 
 import java.util.Arrays;
 

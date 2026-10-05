@@ -1,4 +1,4 @@
-package org.terminal;
+package org.terminal.engine;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
