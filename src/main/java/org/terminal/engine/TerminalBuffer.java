@@ -358,4 +358,12 @@ public class TerminalBuffer {
         this.screen.clear();
         this.scrollback.clear();
     }
+
+    public int getWidth() {
+        return screen.getWidth();
+    }
+
+    public int getHeight() {
+        return screen.getHeight();
+    }
 }
