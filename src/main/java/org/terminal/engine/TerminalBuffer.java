@@ -32,7 +32,10 @@ public class TerminalBuffer {
         int safeCursorX = Math.min(cursorX, screen.getWidth() - 1);
         int safeCursorY = Math.min(cursorY, screen.getHeight() - 1);
 
-        List<LogicalLine> unwrappedScreen = unwrapLines(screen.getAllLines(), safeCursorX, safeCursorY);
+        int lastMeaningfulRow = findLastMeaningfulScreenRow(safeCursorY);
+        List<Line> activeScreenLines = screen.getAllLines().subList(0, lastMeaningfulRow + 1);
+
+        List<LogicalLine> unwrappedScreen = unwrapLines(activeScreenLines, safeCursorX, safeCursorY);
         List<Line> newScreenLines = wrapLogicalLines(unwrappedScreen, newWidth);
 
         int spillCount = Math.max(0, newScreenLines.size() - newHeight);
@@ -152,7 +155,22 @@ public class TerminalBuffer {
         return Math.min(line.getWidth(), lastValidIndex + 1);
     }
 
+    private int findLastMeaningfulScreenRow(int cursorY) {
+        int lastRow = cursorY;
+        for (int y = screen.getHeight() - 1; y > lastRow; y--) {
+            Line line = screen.getLine(y);
+            if (!line.isEmpty() || line.isWrapped()) {
+                lastRow = y;
+                break;
+            }
+        }
+        return lastRow;
+    }
+
     private int findLastNonDefaultCellIndex(Line line) {
+        if (line.isEmpty()) {
+            return -1;
+        }
         int index = line.getWidth() - 1;
         while (index >= 0 && line.isDefaultAt(index)) {
             index--;

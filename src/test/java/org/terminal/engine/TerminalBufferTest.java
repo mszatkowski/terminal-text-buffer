@@ -588,7 +588,7 @@ class TerminalBufferTest {
         buffer.resizeScreen(2, 2);
 
         assertThat(buffer.getCursorColumn()).isEqualTo(1);
-        assertThat(buffer.getCursorRow()).isEqualTo(0);
+        assertThat(buffer.getCursorRow()).isEqualTo(1);
     }
 
     @Test
