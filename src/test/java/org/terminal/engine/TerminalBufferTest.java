@@ -679,4 +679,117 @@ class TerminalBufferTest {
                         "DD"
         );
     }
+
+    @Test
+    void scrollback_negativeCoordinatesAccess() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 1, 3);
+        buffer.setForegroundColor(TerminalColor.CYAN);
+        buffer.write("A");
+        buffer.insertEmptyLineAtBottom();
+
+        assertThat(buffer.getLineAsString(-1)).isEqualTo("A ");
+        assertThat(buffer.getCharacterAtPosition(0, -1)).isEqualTo('A');
+        assertThat(buffer.getCellAttributesAt(0, -1).foreground()).isEqualTo(TerminalColor.CYAN);
+
+        buffer.setCursorPosition(0, 0);
+        buffer.write("B");
+        buffer.insertEmptyLineAtBottom();
+
+        assertThat(buffer.getLineAsString(-1)).isEqualTo("B ");
+        assertThat(buffer.getLineAsString(-2)).isEqualTo("A ");
+        assertThat(buffer.getScrollbackAsString()).isEqualTo("A \nB ");
+    }
+
+    @Test
+    void scrollback_whenNegativeRowOutOfBounds_shouldThrowException() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 2);
+        buffer.write("A");
+        buffer.insertEmptyLineAtBottom();
+
+        assertThatThrownBy(() -> buffer.getLineAsString(-2))
+                .isInstanceOf(IndexOutOfBoundsException.class)
+                .hasMessage("Invalid row: -2");
+
+        assertThatThrownBy(() -> buffer.getCharacterAtPosition(0, -5))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+
+        assertThatThrownBy(() -> buffer.getCellAttributesAt(0, -5))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+    }
+
+    @Test
+    void scrollback_whenMaxLinesIsZero_shouldDoNothingOnPush() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 1, 0);
+        buffer.write("A");
+        buffer.insertEmptyLineAtBottom();
+
+        assertThat(buffer.getScrollbackAsString()).isEmpty();
+    }
+
+    @Test
+    void clearScreenAndScrollback_shouldResetBothScreenAndHistory() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 1, 2);
+        buffer.write("A");
+        buffer.insertEmptyLineAtBottom();
+        buffer.write("B");
+
+        buffer.clearScreenAndScrollback();
+
+        assertThat(buffer.getScreenAsString()).isEqualTo("  ");
+        assertThat(buffer.getScrollbackAsString()).isEmpty();
+        assertThat(buffer.getEntireContentAsString()).isEqualTo("  ");
+    }
+
+    @Test
+    void dimensionsAndStyleModifications() {
+        TerminalBuffer buffer = new TerminalBuffer(10, 5, 0);
+
+        assertThat(buffer.getWidth()).isEqualTo(10);
+        assertThat(buffer.getHeight()).isEqualTo(5);
+
+        buffer.addStyle(Style.BOLD);
+        buffer.addStyle(Style.ITALIC);
+        buffer.removeStyle(Style.BOLD);
+        buffer.write("A");
+        assertThat(buffer.getCellAttributesAt(0, 0).styles()).containsExactly(Style.ITALIC);
+
+        buffer.clearStyles();
+        buffer.write("B");
+        assertThat(buffer.getCellAttributesAt(1, 0).styles()).isEmpty();
+    }
+
+    @Test
+    void writeAndInsert_whenNewlineOccursAtRightEdge_shouldHandleBoundaryBranch() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 0);
+
+        buffer.write("AB\nC");
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "AB\n" +
+                        "C "
+        );
+
+        TerminalBuffer insertBuffer = new TerminalBuffer(2, 2, 0);
+        insertBuffer.insert("AB\nC");
+
+        assertThat(insertBuffer.getScreenAsString()).isEqualTo(
+                "AB\n" +
+                        "C "
+        );
+    }
+
+    @Test
+    void resize_whenWrappedLinesCrossScrollback_shouldPreserveStructure() {
+        TerminalBuffer buffer = new TerminalBuffer(2, 2, 5);
+        buffer.write("ABCD");
+
+        buffer.resizeScreen(4, 2);
+
+        assertThat(buffer.getScreenAsString()).isEqualTo(
+                "ABCD\n" +
+                        "    "
+        );
+        assertThat(buffer.getCursorColumn()).isEqualTo(3);
+        assertThat(buffer.getCursorRow()).isEqualTo(0);
+    }
 }
